@@ -424,8 +424,10 @@
           return;
         }
         let score = 0;
-        if (q.type === 'radio' || q.type === 'bool') {
-          if (userAns === q.ans.toString()) score = 10;
+        if (q.type === 'radio') {
+          if (userAns === q.ans) score = 10;
+        } else if (q.type === 'bool') {
+          if (userAns === q.ans) score = 10;
         } else if (q.type === 'timeInput') {
           if (userAns) {
             const ut = userAns.min*60 + userAns.sec;
