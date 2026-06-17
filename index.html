@@ -531,18 +531,32 @@
                 userAns.toMode === q.ans.toMode) score = q.score;
           } else if (q.type === 'sections') {
             if (userAns && userAns.length) {
-              let points = 0;
               const tol = 2;
-              q.ans.forEach((correct, idx) => {
-                const ua = userAns[idx];
-                if (!ua) return;
-                const ut = ua.min*60 + ua.sec;
-                const ct = correct.min*60 + correct.sec;
-                if (Math.abs(ut - ct) <= tol && ua.label === correct.label) {
-                  points += (q.score / q.ans.length);
+              const correctAnswers = q.ans;
+              const userSegments = userAns.map(ua => ({
+                time: ua.min * 60 + ua.sec,
+                label: ua.label
+              }));
+              const used = new Array(userSegments.length).fill(false);
+              let matched = 0;
+
+              for (const correct of correctAnswers) {
+                const correctTime = correct.min * 60 + correct.sec;
+                let found = false;
+                for (let i = 0; i < userSegments.length; i++) {
+                  if (used[i]) continue;
+                  const us = userSegments[i];
+                  if (us.label === correct.label && Math.abs(us.time - correctTime) <= tol) {
+                    used[i] = true;
+                    found = true;
+                    break;
+                  }
                 }
-              });
-              score = Math.round(points);
+                if (found) matched++;
+              }
+
+              const perPoint = q.score / correctAnswers.length;
+              score = Math.round(matched * perPoint);
             }
           } else if (q.type === 'chordProgression') {
             if (userAns) {
