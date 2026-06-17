@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>答案查看</title>
+  <script>
+    function checkPassword() {
+      const pwd = prompt('请输入密码：');
+      if (pwd === 'music2024') {
+        document.getElementById('content').style.display = 'block';
+      } else {
+        alert('密码错误');
+        document.body.innerHTML = '';
+      }
+    }
+    window.onload = checkPassword;
+  </script>
+</head>
+<body style="display:none" id="content">
+  <h1>音乐素养测试答案</h1>
+  <p>（此处添加所有题目答案表格，篇幅原因略，您可根据需要补充）</p>
+</body>
+</html>

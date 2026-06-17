@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>面试者数据</title>
+  <style>
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #f2f2f2; }
+  </style>
+</head>
+<body>
+  <h1>面试者数据</h1>
+  <table id="dataTable"><thead><tr><th>姓名</th><th>第一关</th><th>第二关</th><th>第三关</th><th>第四关</th><th>第五关</th><th>最终等级</th><th>详细答题</th></tr></thead><tbody></tbody></table>
+  <script>
+    fetch('YOUR_PUBLISHED_SHEET_JSON_URL')
+      .then(res => res.json())
+      .then(data => {
+        const rows = data.feed.entry;
+        const tbody = document.querySelector('#dataTable tbody');
+        rows.forEach(row => {
+          const cells = row.gs$cell;
+          if (cells.col === '1') { // 新行开始
+            const tr = document.createElement('tr');
+            for (let i=0; i<8; i++) {
+              const td = document.createElement('td');
+              td.textContent = '';
+              tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+          }
+          const tr = tbody.lastChild;
+          const col = parseInt(cells.col) - 1;
+          tr.children[col].textContent = cells.$t;
+        });
+      });
+  </script>
+</body>
+</html>
