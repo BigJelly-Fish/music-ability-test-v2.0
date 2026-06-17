@@ -73,7 +73,7 @@
       { level:3, id:'3.5', type:'radio', audio:'audio/3.5.mp3', q:'这段音乐最具特色的独奏乐器是？', opts:['A.手风琴(Bandoneón)','B.萨克斯','C.长笛','D.西塔琴'], ans:'A' },
       { level:3, id:'3.6', type:'radio', audio:'audio/3.6.mp3', q:'这段音乐的节奏型最符合以下哪种风格的特征？', opts:['A. Bossa Nova','B. Funk','C. Reggae','D. Disco','E. Swing','F. Samba','G. Reggaeton','H. Blues Shuffle','I. Dancehall','J. Jersey Club'], ans:'B' },
       { level:3, id:'3.7', type:'radio', audio:'audio/3.7.mp3', q:'这是一首jazz风格的歌曲，请选出具体的二级风格名称：', opts:['A. Acid jazz','B. smooth jazz','C. fusion jazz','D. Bebop','E. Bossa Nova','F. Bigband','G. Ragtime'], ans:'B' },
-      { level:3, id:'3.8', type:'timeInput', audio:'audio/3.8.mp3', q:'听片段（全长约2分钟），副歌开始的时间是？填分钟和秒数。误差±2秒得分。', ans:{min:1, sec:16}, score:10 },
+      { level:3, id:'3.8', type:'timeInput', audio:'audio/3.8.mp3', q:'听片段（全长约2分钟），副歌开始的时间是？填分钟和秒数。误差±2秒得分。（如果不足1分钟，请在“分钟”栏填0）', ans:{min:1, sec:16}, score:10 },
       { level:3, id:'3.9', type:'multi', audio:'audio/3.9.mp3', q:'歌曲中主要出现的乐器名称（多选，漏选或错选不得分）', opts:['A.小号','B.电吉他','C.架子鼓','D.长笛','E.合成器','F.贝斯'], ans:['B','C','F'], score:20 },
       // 第四关 专业级
       { level:4, id:'4.1', type:'radio', audio:'audio/4.1.mp3', q:'这段音频最符合哪个结构术语？', opts:['A. Post-chorus','B. Breakdown','C. Buildup','D. Intro'], ans:'C' },
@@ -96,7 +96,6 @@
     const passScores = [90, 90, 80, 70, 60];
     const levelNames = ['基础级', '进阶级', '乐迷级', '专业级', '制作人级'];
 
-    // 检测是否开启debug模式
     const urlParams = new URLSearchParams(window.location.search);
     const isDebug = urlParams.get('debug') === 'true';
 
@@ -111,7 +110,7 @@
 
     const app = document.getElementById('app');
 
-    // 等音标准化映射（统一为升号形式）
+    // 等音统一映射为升号
     const enharmonicMap = {
       'C':'C','C#':'C#','DB':'C#','D':'D','D#':'D#','EB':'D#','E':'E','F':'F','F#':'F#','GB':'F#','G':'G','G#':'G#','AB':'G#','A':'A','A#':'A#','BB':'A#','B':'B'
     };
@@ -124,6 +123,27 @@
       }
       if (s.endsWith('B') && s.length > 1) s = s.slice(0,-1) + 'b';
       return enharmonicMap[s] || s;
+    }
+
+    // 通用音名选项列表
+    const pitchOptions = ['C', 'C# / Db', 'D', 'D# / Eb', 'E', 'F', 'F# / Gb', 'G', 'G# / Ab', 'A', 'A# / Bb', 'B'];
+    function getPitchSelectOptions(selectedValue) {
+      let html = '';
+      pitchOptions.forEach(p => {
+        const val = p.split(' ')[0]; // 取第一个作为值，即升号表示
+        html += `<option value="${val}" ${selectedValue === val ? 'selected' : ''}>${p}</option>`;
+      });
+      return html;
+    }
+
+    // 延伸音选项
+    const extOptions = ['/', '2', '3', '4', '5', '6', '7', '9', '11', '13', 'b5', 'b11', 'b13'];
+    function getExtSelectOptions(selectedValue) {
+      let html = '';
+      extOptions.forEach(v => {
+        html += `<option value="${v}" ${selectedValue === v ? 'selected' : ''}>${v}</option>`;
+      });
+      return html;
     }
 
     window.toggleAbandon = function(checkbox, qid) {
@@ -210,8 +230,6 @@
             document.getElementById(`fromMode_${id}`).value = ans.fromMode;
             document.getElementById(`toLetter_${id}`).value = ans.toLetter;
             document.getElementById(`toMode_${id}`).value = ans.toMode;
-          } else if (q.type === 'sections') {
-            // 动态内容不恢复
           } else if (q.type === 'chordProgression') {
             document.getElementById(`chordNames_${id}`).value = ans.chordNames || '';
             document.getElementById(`romanNums_${id}`).value = ans.romanNums || '';
@@ -219,13 +237,13 @@
             for (let i=0;i<q.chordsData.length;i++) {
               document.getElementById(`root_${id}_${i}`).value = ans[i]?.root || '';
               document.getElementById(`quality_${id}_${i}`).value = ans[i]?.quality || 'maj';
-              document.getElementById(`ext_${id}_${i}`).value = ans[i]?.ext || '';
+              document.getElementById(`ext_${id}_${i}`).value = ans[i]?.ext || '/';
             }
           } else if (q.type === 'romanDetail') {
             for (let i=0;i<q.progression.length;i++) {
               document.getElementById(`deg_${id}_${i}`).value = ans[i]?.degree || '1';
               document.getElementById(`qual_${id}_${i}`).value = ans[i]?.quality || 'maj';
-              document.getElementById(`extR_${id}_${i}`).value = ans[i]?.ext || '';
+              document.getElementById(`extR_${id}_${i}`).value = ans[i]?.ext || '/';
             }
           }
         }
@@ -288,14 +306,14 @@
         html += `</div>`;
       } else if (q.type === 'keyInput') {
         html += `<div class="fill-in">调性: 
-          <input type="text" id="letter_${q.id}" placeholder="如 C, F#" style="width:60px">
-          <select id="mode_${q.id}"><option value="major">major</option><option value="minor">minor</option></select></div>`;
+          <select id="letter_${q.id}">${getPitchSelectOptions('E')}</select>
+          <select id="mode_${q.id}"><option value="major">major</option><option value="minor" selected>minor</option></select></div>`;
       } else if (q.type === 'keyChangeInput') {
         html += `<div class="fill-in">从 
-          <input type="text" id="fromLetter_${q.id}" placeholder="C" style="width:50px">
-          <select id="fromMode_${q.id}"><option value="major">major</option><option value="minor">minor</option></select>
-          转到 <input type="text" id="toLetter_${q.id}" placeholder="G" style="width:50px">
-          <select id="toMode_${q.id}"><option value="major">major</option><option value="minor">minor</option></select></div>`;
+          <select id="fromLetter_${q.id}">${getPitchSelectOptions('F#')}</select>
+          <select id="fromMode_${q.id}"><option value="major" selected>major</option><option value="minor">minor</option></select>
+          转到 <select id="toLetter_${q.id}">${getPitchSelectOptions('G#')}</select>
+          <select id="toMode_${q.id}"><option value="major" selected>major</option><option value="minor">minor</option></select></div>`;
       } else if (q.type === 'sections') {
         html += `<div>请添加段落节点（时间：分:秒，结构选择）：</div>`;
         html += `<div id="sectionContainer_${q.id}"></div>`;
@@ -313,13 +331,19 @@
         html += `<div>`;
         q.chordsData.forEach((ch, i) => {
           html += `<div class="fill-in">和弦${i+1}: 
-            <input type="text" id="root_${q.id}_${i}" placeholder="C" style="width:45px">
+            <select id="root_${q.id}_${i}">${getPitchSelectOptions(ch.root)}</select>
             <select id="quality_${q.id}_${i}">
-              <option value="maj">maj</option><option value="min">min</option><option value="dim">dim</option>
-              <option value="aug">aug</option><option value="sus">sus</option><option value="mM">mM</option>
-              <option value="ø">ø</option><option value="add">add</option><option value="/">/</option>
+              <option value="maj" ${ch.quality==='maj'?'selected':''}>maj</option>
+              <option value="min" ${ch.quality==='min'?'selected':''}>min</option>
+              <option value="dim" ${ch.quality==='dim'?'selected':''}>dim</option>
+              <option value="aug" ${ch.quality==='aug'?'selected':''}>aug</option>
+              <option value="sus" ${ch.quality==='sus'?'selected':''}>sus</option>
+              <option value="mM" ${ch.quality==='mM'?'selected':''}>mM</option>
+              <option value="ø" ${ch.quality==='ø'?'selected':''}>ø</option>
+              <option value="add" ${ch.quality==='add'?'selected':''}>add</option>
+              <option value="/" ${ch.quality==='/'?'selected':''}>/</option>
             </select>
-            <input type="text" id="ext_${q.id}_${i}" placeholder="7" style="width:40px">
+            <select id="ext_${q.id}_${i}">${getExtSelectOptions(ch.ext)}</select>
           </div>`;
         });
         html += `</div>`;
@@ -328,25 +352,30 @@
         q.progression.forEach((p, i) => {
           html += `<div class="fill-in">和声${i+1}: 
             <select id="deg_${q.id}_${i}">
-              ${['1','b2','2','b3','3','4','#4','5','b6','6','b7','7'].map(d => `<option value="${d}">${d}</option>`).join('')}
+              ${['1','b2','2','b3','3','4','#4','5','b6','6','b7','7'].map(d => `<option value="${d}" ${p.degree===d?'selected':''}>${d}</option>`).join('')}
             </select>
             <select id="qual_${q.id}_${i}">
-              <option value="maj">maj</option><option value="min">min</option><option value="dim">dim</option>
-              <option value="aug">aug</option><option value="sus">sus</option><option value="mM">mM</option>
-              <option value="ø">ø</option><option value="add">add</option><option value="/">/</option>
+              <option value="maj" ${p.quality==='maj'?'selected':''}>maj</option>
+              <option value="min" ${p.quality==='min'?'selected':''}>min</option>
+              <option value="dim" ${p.quality==='dim'?'selected':''}>dim</option>
+              <option value="aug" ${p.quality==='aug'?'selected':''}>aug</option>
+              <option value="sus" ${p.quality==='sus'?'selected':''}>sus</option>
+              <option value="mM" ${p.quality==='mM'?'selected':''}>mM</option>
+              <option value="ø" ${p.quality==='ø'?'selected':''}>ø</option>
+              <option value="add" ${p.quality==='add'?'selected':''}>add</option>
+              <option value="/" ${p.quality==='/'?'selected':''}>/</option>
             </select>
-            <input type="text" id="extR_${q.id}_${i}" placeholder="7" style="width:40px">
+            <select id="extR_${q.id}_${i}">${getExtSelectOptions(p.ext)}</select>
           </div>`;
         });
         html += `</div>`;
       }
 
-      // debug模式显示正确答案
+      // debug 模式显示答案
       if (isDebug) {
         html += `<div class="debug-answer">${getDebugAnswerText(q)}</div>`;
       }
 
-      // 放弃本题选项
       html += `<label class="abandon-label"><input type="checkbox" class="abandon-check" data-qid="${q.id}" onchange="toggleAbandon(this, '${q.id}')"> 放弃本题（得0分）</label>`;
       html += `</div>`;
       return html;
@@ -394,13 +423,13 @@
             const checked = document.querySelectorAll(`input[name="q${q.id}"]:checked`);
             answers[q.id] = Array.from(checked).map(c => c.value);
           } else if (q.type === 'keyInput') {
-            const letter = document.getElementById(`letter_${q.id}`).value.trim();
+            const letter = document.getElementById(`letter_${q.id}`).value;
             const mode = document.getElementById(`mode_${q.id}`).value;
             answers[q.id] = { letter, mode };
           } else if (q.type === 'keyChangeInput') {
-            const fl = document.getElementById(`fromLetter_${q.id}`).value.trim();
+            const fl = document.getElementById(`fromLetter_${q.id}`).value;
             const fm = document.getElementById(`fromMode_${q.id}`).value;
-            const tl = document.getElementById(`toLetter_${q.id}`).value.trim();
+            const tl = document.getElementById(`toLetter_${q.id}`).value;
             const tm = document.getElementById(`toMode_${q.id}`).value;
             answers[q.id] = { fromLetter: fl, fromMode: fm, toLetter: tl, toMode: tm };
           } else if (q.type === 'sections') {
@@ -425,9 +454,9 @@
             const arr = [];
             for (let i=0; i<q.chordsData.length; i++) {
               arr.push({
-                root: document.getElementById(`root_${q.id}_${i}`).value.trim(),
+                root: document.getElementById(`root_${q.id}_${i}`).value,
                 quality: document.getElementById(`quality_${q.id}_${i}`).value,
-                ext: document.getElementById(`ext_${q.id}_${i}`).value.trim()
+                ext: document.getElementById(`ext_${q.id}_${i}`).value
               });
             }
             answers[q.id] = arr;
@@ -437,7 +466,7 @@
               arr.push({
                 degree: document.getElementById(`deg_${q.id}_${i}`).value,
                 quality: document.getElementById(`qual_${q.id}_${i}`).value,
-                ext: document.getElementById(`extR_${q.id}_${i}`).value.trim()
+                ext: document.getElementById(`extR_${q.id}_${i}`).value
               });
             }
             answers[q.id] = arr;
@@ -480,7 +509,6 @@
             } else if (q.scoring === 'positive') {
               let correct = 0;
               const answerSet = new Set(q.ans);
-              const userSet = new Set(userAns);
               let hasWrong = false;
               userAns.forEach(v => { if (!answerSet.has(v)) hasWrong = true; });
               if (hasWrong) score = 0;
