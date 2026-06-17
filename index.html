@@ -31,6 +31,7 @@
     .warning { color: #e74c3c; font-size: 0.85rem; margin-top: 0.5rem; }
     .abandon-label { margin-left: 1rem; color: #888; font-size: 0.9rem; cursor: pointer; user-select: none; }
     .declaration { background: #fef9e7; border-left: 4px solid #f1c40f; padding: 1rem; margin: 1rem 0; border-radius: 6px; font-size: 0.9rem; line-height: 1.5; }
+    .debug-answer { margin-top: 0.5rem; font-size: 0.85rem; color: #27ae60; background: #eafaf1; padding: 0.3rem 0.6rem; border-radius: 4px; }
     @media (max-width: 480px) {
       .container { padding: 1rem; }
       .progress-step { font-size: 0.65rem; padding: 0.4rem 0.1rem; }
@@ -89,11 +90,15 @@
       { level:5, id:'5.3', type:'multi', audio:'audio/5.3.mp3', q:'听这段音乐中的solo电吉他，选出所有正确的描述（多选。每个正确选项得5分，若选错任何其他选项则本题0分）', opts:['A. 使用了过载','B. 使用了哇音踏板','C. 清音音色，无其他效果','D. 带有明显的混响','E. 带有明显的延迟','F. 使用了摇把/弯音','G. 带有颤音效果','H. 带有镶边效果','I. 带有合唱效果'], ans:['A','D','E','F'], scoring:'allCorrect', score:20 },
       { level:5, id:'5.4', type:'sections', audio:'audio/5.4.mp3', q:'听片段，请标记每个段落开始的秒数，并标记段落名称。', structures:['intro','verse','chorus','pre-chorus','post-chorus','bridge','solo','interlude','breakdown','outro'], ans:[{min:0,sec:0,label:'intro'},{min:0,sec:16,label:'chorus'},{min:0,sec:44,label:'verse'},{min:0,sec:59,label:'chorus'},{min:1,sec:12,label:'verse'},{min:1,sec:28,label:'chorus'},{min:1,sec:39,label:'bridge'},{min:1,sec:55,label:'chorus'},{min:2,sec:19,label:'breakdown'},{min:2,sec:34,label:'solo'},{min:2,sec:43,label:'outro'}], score:22 },
       { level:5, id:'5.5', type:'chordDetail', audio:'audio/5.5.mp3', q:'听仔细这段音乐中的和弦进行，请写出和弦的准确名称。', chordsData:[{root:'G',quality:'maj',ext:'7'},{root:'G',quality:'min',ext:'6'},{root:'F#',quality:'min',ext:'7'},{root:'B',quality:'/',ext:'7'},{root:'E',quality:'min',ext:'9'},{root:'G#',quality:'dim',ext:'/'},{root:'A',quality:'sus',ext:'4'}], score:28 },
-      { level:5, id:'5.6', type:'romanDetail', audio:'audio/5.6.mp3', q:'用罗马数字表示级数，和弦属性要准确（如ii9-V7-Imaj7）。', progression:[{degree:'1',quality:'maj',ext:'7'},{degree:'3',quality:'maj',ext:'7'},{degree:'6',quality:'min',ext:'7'},{degree:'4',quality:'maj',ext:'/'},{degree:'5',quality:'sus',ext:'4'}], score:10 }
+      { level:5, id:'5.6', type:'romanDetail', audio:'audio/5.6.mp3', q:'请用阿拉伯数字表示和声的级数，和弦属性要准确，不需要填的选项，可以选“/”或者输入“/”', progression:[{degree:'1',quality:'maj',ext:'7'},{degree:'3',quality:'/',ext:'7'},{degree:'6',quality:'min',ext:'7'},{degree:'4',quality:'maj',ext:'/'},{degree:'5',quality:'sus',ext:'4'}], score:10 }
     ];
 
     const passScores = [90, 90, 80, 70, 60];
     const levelNames = ['基础级', '进阶级', '乐迷级', '专业级', '制作人级'];
+
+    // 检测是否开启debug模式
+    const urlParams = new URLSearchParams(window.location.search);
+    const isDebug = urlParams.get('debug') === 'true';
 
     let state = {
       playerName: '',
@@ -106,7 +111,7 @@
 
     const app = document.getElementById('app');
 
-    // 等音标准化：将所有常见音名统一映射为升号表示（F#, C#, G#, D#, A#, Bb作为特例保留？我们统一为升号形式：C#=C#, Db=C#, F#=F#, Gb=F# 等）
+    // 等音标准化映射（统一为升号形式）
     const enharmonicMap = {
       'C':'C','C#':'C#','DB':'C#','D':'D','D#':'D#','EB':'D#','E':'E','F':'F','F#':'F#','GB':'F#','G':'G','G#':'G#','AB':'G#','A':'A','A#':'A#','BB':'A#','B':'B'
     };
@@ -114,20 +119,13 @@
     function normalizePitch(p) {
       if (!p) return p;
       let s = p.trim().toUpperCase();
-      // 将前置升降号移到后面
       if (/^[#B]/.test(s) && s.length > 1) {
         s = s.substring(1) + s.charAt(0);
       }
-      // 替换降号b为B（代码内部我们统一用B作为降记号）
-      s = s.replace(/B$/, 'b'); // 将末尾的B视为降号（因为大写B可能冲突，但我们已全部大写，需判断）
-      // 实际处理：我们允许用户输入b或B作为降号，内部统一用小写b
-      // 先还原：如果末尾是b，则保留；如果是B且前面有字母，视为降号
       if (s.endsWith('B') && s.length > 1) s = s.slice(0,-1) + 'b';
-      // 映射到标准升号形式
       return enharmonicMap[s] || s;
     }
 
-    // 放弃本题交互
     window.toggleAbandon = function(checkbox, qid) {
       const block = document.querySelector(`.question-block[data-qid="${qid}"]`);
       if (!block) return;
@@ -213,7 +211,7 @@
             document.getElementById(`toLetter_${id}`).value = ans.toLetter;
             document.getElementById(`toMode_${id}`).value = ans.toMode;
           } else if (q.type === 'sections') {
-            // 不恢复动态行，用户需重新填写
+            // 动态内容不恢复
           } else if (q.type === 'chordProgression') {
             document.getElementById(`chordNames_${id}`).value = ans.chordNames || '';
             document.getElementById(`romanNums_${id}`).value = ans.romanNums || '';
@@ -244,6 +242,21 @@
       }
       html += `</div>`;
       return html;
+    }
+
+    function getDebugAnswerText(q) {
+      if (q.type === 'radio') return `正确答案：${q.ans}`;
+      if (q.type === 'bool') return `正确答案：${q.ans ? '正确' : '错误'}`;
+      if (q.type === 'timeInput') return `正确答案：${q.ans.min}分${q.ans.sec}秒`;
+      if (q.type === 'secInput') return `正确答案：${q.ans}秒`;
+      if (q.type === 'multi') return `正确答案：${q.ans.join(', ')}`;
+      if (q.type === 'keyInput') return `正确答案：${q.ans.letter} ${q.ans.mode}`;
+      if (q.type === 'keyChangeInput') return `正确答案：${q.ans.fromLetter} ${q.ans.fromMode} → ${q.ans.toLetter} ${q.ans.toMode}`;
+      if (q.type === 'sections') return `正确答案：${q.ans.map(a => `${a.min}:${a.sec} ${a.label}`).join(', ')}`;
+      if (q.type === 'chordProgression') return `正确答案：和弦 ${q.chords.map(c=>c.name).join(', ')}；级数 ${q.chords.map(c=>c.roman).join(', ')}`;
+      if (q.type === 'chordDetail') return `正确答案：${q.chordsData.map(c => `${c.root} ${c.quality} ${c.ext}`).join(', ')}`;
+      if (q.type === 'romanDetail') return `正确答案：${q.progression.map(p => `${p.degree} ${p.quality} ${p.ext}`).join(' - ')}`;
+      return '';
     }
 
     function renderQuestion(q, idx) {
@@ -287,7 +300,6 @@
         html += `<div>请添加段落节点（时间：分:秒，结构选择）：</div>`;
         html += `<div id="sectionContainer_${q.id}"></div>`;
         html += `<button type="button" class="btn" onclick="addSectionRow('${q.id}')">+ 添加段落</button>`;
-        // 初始只添加一个空白行
         setTimeout(() => {
           const container = document.getElementById(`sectionContainer_${q.id}`);
           if (container && container.children.length === 0) {
@@ -328,7 +340,13 @@
         });
         html += `</div>`;
       }
-      // 放弃本题
+
+      // debug模式显示正确答案
+      if (isDebug) {
+        html += `<div class="debug-answer">${getDebugAnswerText(q)}</div>`;
+      }
+
+      // 放弃本题选项
       html += `<label class="abandon-label"><input type="checkbox" class="abandon-check" data-qid="${q.id}" onchange="toggleAbandon(this, '${q.id}')"> 放弃本题（得0分）</label>`;
       html += `</div>`;
       return html;
