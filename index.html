@@ -78,11 +78,11 @@
       { level:4, id:'4.1', type:'radio', audio:'audio/4.1.mp3', q:'这段音频最符合哪个结构术语？', opts:['A. Post-chorus','B. Breakdown','C. Buildup','D. Intro'], ans:'C' },
       { level:4, id:'4.2', type:'keyInput', audio:'audio/4.2.mp3', q:'这段音频的调式是？（精度到大调和小调即可）', ans:{letter:'E', mode:'minor'}, score:10 },
       { level:4, id:'4.3', type:'keyChangeInput', audio:'audio/4.3.mp3', q:'歌曲中从什么调式转到了什么调式？', ans:{fromLetter:'F#', fromMode:'major', toLetter:'G#', toMode:'major'}, score:10 },
-      { level:4, id:'4.4', type:'multi', audio:'audio/4.4.mp3', q:'你能同时听到哪几种配器？（多选）选ACD得10分，选ABCD得15分', opts:['A. 木吉他','B. 钢琴','C. 电子鼓','D. 合成器','E. 大提琴'], ans:['A','B','C','D'], scoring:'custom', customScore: function(user){ const set=new Set(user); const correct=new Set(['A','B','C','D']); if(set.size===3 && set.has('A')&&set.has('C')&&set.has('D')&&!set.has('B')) return 10; if(set.size===4 && set.has('A')&&set.has('B')&&set.has('C')&&set.has('D')) return 15; return 0; } },
+      { level:4, id:'4.4', type:'multi', audio:'audio/4.4.mp3', q:'你能同时听到哪几种配器？（多选）', opts:['A. 木吉他','B. 钢琴','C. 电子鼓','D. 合成器','E. 大提琴'], ans:['A','B','C','D'], scoring:'custom', customScore: function(user){ const set=new Set(user); const correct=new Set(['A','B','C','D']); if(set.size===3 && set.has('A')&&set.has('C')&&set.has('D')&&!set.has('B')) return 10; if(set.size===4 && set.has('A')&&set.has('B')&&set.has('C')&&set.has('D')) return 15; return 0; } },
       { level:4, id:'4.5', type:'multi', audio:'audio/4.5.mp3', q:'你能同时听到哪几种配器？（多选）每选对一个得5分，选错0分', opts:['A. 架子鼓','B. 电子鼓','C. 钢琴','D. 长号','E. 合成器bass','F. 电bass','G. 小提琴','H. 木吉他'], ans:['B','C','F','H'], scoring:'positive', score:20 },
       { level:4, id:'4.6', type:'secInput', audio:'audio/4.6.mp3', q:'歌曲中出现的Bridge段落出现在第几秒？填秒数，误差±2秒得分。', ans:21, score:10 },
       { level:4, id:'4.7', type:'sections', audio:'audio/4.7.mp3', q:'听片段，请标记每个段落开始的时间，并正确填空标记每个段落的名称。', structures:['intro','verse','chorus','bridge','interlude','outro'], ans:[{min:0,sec:0,label:'intro'},{min:0,sec:8,label:'verse'},{min:0,sec:41,label:'chorus'},{min:1,sec:16,label:'verse'},{min:1,sec:39,label:'chorus'},{min:2,sec:15,label:'bridge'},{min:2,sec:40,label:'chorus'},{min:3,sec:30,label:'outro'}], score:20 },
-      { level:4, id:'4.8', type:'chordProgression', audio:'audio/4.8.mp3', q:'这是四个和弦的循环。请按顺序填写和弦名称（只需写大小三和弦，如 Dm、Bb 等）。并在第二行用罗马数字级数表示这组和声进行。', chords:[{name:'D',roman:'I'},{name:'A',roman:'V'},{name:'Bm',roman:'vi'},{name:'G',roman:'IV'}], score:5 },
+      { level:4, id:'4.8', type:'chordProgression', audio:'audio/4.8.mp3', q:'这是四个和弦的循环。请按顺序填写和弦名称（只需写大小三和弦，如 Dm、Bb 等，中间用,隔开）。并在第二行用罗马数字级数表示这组和声进行（使用v和i来表示罗马数字，大和弦用大写，小和弦用小写，中间用,隔开）', chords:[{name:'D',roman:'I'},{name:'A',roman:'V'},{name:'Bm',roman:'vi'},{name:'G',roman:'IV'}], score:5 },
       // 第五关 制作人级
       { level:5, id:'5.1', type:'radio', audio:'audio/5.1.mp3', q:'听贝斯音色，最贴切的形容是？', opts:['A. 无品原声贝斯，音色柔和','B. 合成器sub bass，圆润厚重','C. 带失真的合成器贝斯，中高频突出且肥厚','D. 拨片演奏的P贝斯，音头有力'], ans:'B' },
       { level:5, id:'5.2', type:'multi', audio:'audio/5.2.mp3', q:'音频中的人声主要使用了哪些效果器处理？（多选，错选0分）', opts:['A. reverb效果器','B. delay效果器','C. 明显的auto-tune效果器','D. Compressor效果器','E. pitch效果器','F. side-chain效果器'], ans:['A','B','D'], scoring:'allCorrect', score:10 },
@@ -106,12 +106,25 @@
 
     const app = document.getElementById('app');
 
-    // 标准化音名（前置升降号移到后面）
+    // 等音标准化：将所有常见音名统一映射为升号表示（F#, C#, G#, D#, A#, Bb作为特例保留？我们统一为升号形式：C#=C#, Db=C#, F#=F#, Gb=F# 等）
+    const enharmonicMap = {
+      'C':'C','C#':'C#','DB':'C#','D':'D','D#':'D#','EB':'D#','E':'E','F':'F','F#':'F#','GB':'F#','G':'G','G#':'G#','AB':'G#','A':'A','A#':'A#','BB':'A#','B':'B'
+    };
+
     function normalizePitch(p) {
       if (!p) return p;
-      let s = p.trim();
-      if (/^[#b]/.test(s)) s = s.substring(1) + s.charAt(0);
-      return s.toUpperCase();
+      let s = p.trim().toUpperCase();
+      // 将前置升降号移到后面
+      if (/^[#B]/.test(s) && s.length > 1) {
+        s = s.substring(1) + s.charAt(0);
+      }
+      // 替换降号b为B（代码内部我们统一用B作为降记号）
+      s = s.replace(/B$/, 'b'); // 将末尾的B视为降号（因为大写B可能冲突，但我们已全部大写，需判断）
+      // 实际处理：我们允许用户输入b或B作为降号，内部统一用小写b
+      // 先还原：如果末尾是b，则保留；如果是B且前面有字母，视为降号
+      if (s.endsWith('B') && s.length > 1) s = s.slice(0,-1) + 'b';
+      // 映射到标准升号形式
+      return enharmonicMap[s] || s;
     }
 
     // 放弃本题交互
@@ -180,7 +193,6 @@
             if (checkbox) { checkbox.checked = true; toggleAbandon(checkbox, id); }
             continue;
           }
-          // 恢复普通答案
           if (q.type === 'radio' || q.type === 'bool') {
             const radios = document.getElementsByName(`q${id}`);
             radios.forEach(r => { if (r.value === ans.toString()) r.checked = true; });
@@ -201,7 +213,7 @@
             document.getElementById(`toLetter_${id}`).value = ans.toLetter;
             document.getElementById(`toMode_${id}`).value = ans.toMode;
           } else if (q.type === 'sections') {
-            // 暂不恢复动态内容，用户需重新填写
+            // 不恢复动态行，用户需重新填写
           } else if (q.type === 'chordProgression') {
             document.getElementById(`chordNames_${id}`).value = ans.chordNames || '';
             document.getElementById(`romanNums_${id}`).value = ans.romanNums || '';
@@ -275,10 +287,11 @@
         html += `<div>请添加段落节点（时间：分:秒，结构选择）：</div>`;
         html += `<div id="sectionContainer_${q.id}"></div>`;
         html += `<button type="button" class="btn" onclick="addSectionRow('${q.id}')">+ 添加段落</button>`;
+        // 初始只添加一个空白行
         setTimeout(() => {
           const container = document.getElementById(`sectionContainer_${q.id}`);
           if (container && container.children.length === 0) {
-            for (let i=0; i<q.ans.length; i++) addSectionRow(q.id);
+            addSectionRow(q.id);
           }
         }, 0);
       } else if (q.type === 'chordProgression') {
@@ -315,7 +328,7 @@
         });
         html += `</div>`;
       }
-      // 放弃本题选项
+      // 放弃本题
       html += `<label class="abandon-label"><input type="checkbox" class="abandon-check" data-qid="${q.id}" onchange="toggleAbandon(this, '${q.id}')"> 放弃本题（得0分）</label>`;
       html += `</div>`;
       return html;
@@ -340,75 +353,80 @@
       const questions = getQuestionsByLevel(level);
       let answers = {};
       questions.forEach(q => {
-        const abandonCheck = document.querySelector(`.abandon-check[data-qid="${q.id}"]`);
-        if (abandonCheck && abandonCheck.checked) {
-          answers[q.id] = '__ABANDONED__';
-          return;
-        }
-        if (q.type === 'radio') {
-          const selected = document.querySelector(`input[name="q${q.id}"]:checked`);
-          answers[q.id] = selected ? selected.value : null;
-        } else if (q.type === 'bool') {
-          const selected = document.querySelector(`input[name="q${q.id}"]:checked`);
-          answers[q.id] = selected ? selected.value === 'true' : null;
-        } else if (q.type === 'timeInput') {
-          const min = parseInt(document.getElementById(`min_${q.id}`).value);
-          const sec = parseInt(document.getElementById(`sec_${q.id}`).value);
-          answers[q.id] = isNaN(min) || isNaN(sec) ? null : { min, sec };
-        } else if (q.type === 'secInput') {
-          const sec = parseInt(document.getElementById(`sec_${q.id}`).value);
-          answers[q.id] = isNaN(sec) ? null : sec;
-        } else if (q.type === 'multi') {
-          const checked = document.querySelectorAll(`input[name="q${q.id}"]:checked`);
-          answers[q.id] = Array.from(checked).map(c => c.value);
-        } else if (q.type === 'keyInput') {
-          const letter = document.getElementById(`letter_${q.id}`).value.trim();
-          const mode = document.getElementById(`mode_${q.id}`).value;
-          answers[q.id] = { letter, mode };
-        } else if (q.type === 'keyChangeInput') {
-          const fl = document.getElementById(`fromLetter_${q.id}`).value.trim();
-          const fm = document.getElementById(`fromMode_${q.id}`).value;
-          const tl = document.getElementById(`toLetter_${q.id}`).value.trim();
-          const tm = document.getElementById(`toMode_${q.id}`).value;
-          answers[q.id] = { fromLetter: fl, fromMode: fm, toLetter: tl, toMode: tm };
-        } else if (q.type === 'sections') {
-          const rows = document.querySelectorAll(`#sectionContainer_${q.id} .section-row`);
-          const secs = [];
-          rows.forEach(row => {
-            const inputs = row.querySelectorAll('input');
-            const select = row.querySelector('select');
-            const min = parseInt(inputs[0].value);
-            const sec = parseInt(inputs[1].value);
-            if (!isNaN(min) && !isNaN(sec) && select.value) {
-              secs.push({ min, sec, label: select.value });
+        try {
+          const abandonCheck = document.querySelector(`.abandon-check[data-qid="${q.id}"]`);
+          if (abandonCheck && abandonCheck.checked) {
+            answers[q.id] = '__ABANDONED__';
+            return;
+          }
+          if (q.type === 'radio') {
+            const selected = document.querySelector(`input[name="q${q.id}"]:checked`);
+            answers[q.id] = selected ? selected.value : null;
+          } else if (q.type === 'bool') {
+            const selected = document.querySelector(`input[name="q${q.id}"]:checked`);
+            answers[q.id] = selected ? selected.value === 'true' : null;
+          } else if (q.type === 'timeInput') {
+            const min = parseInt(document.getElementById(`min_${q.id}`).value);
+            const sec = parseInt(document.getElementById(`sec_${q.id}`).value);
+            answers[q.id] = isNaN(min) || isNaN(sec) ? null : { min, sec };
+          } else if (q.type === 'secInput') {
+            const sec = parseInt(document.getElementById(`sec_${q.id}`).value);
+            answers[q.id] = isNaN(sec) ? null : sec;
+          } else if (q.type === 'multi') {
+            const checked = document.querySelectorAll(`input[name="q${q.id}"]:checked`);
+            answers[q.id] = Array.from(checked).map(c => c.value);
+          } else if (q.type === 'keyInput') {
+            const letter = document.getElementById(`letter_${q.id}`).value.trim();
+            const mode = document.getElementById(`mode_${q.id}`).value;
+            answers[q.id] = { letter, mode };
+          } else if (q.type === 'keyChangeInput') {
+            const fl = document.getElementById(`fromLetter_${q.id}`).value.trim();
+            const fm = document.getElementById(`fromMode_${q.id}`).value;
+            const tl = document.getElementById(`toLetter_${q.id}`).value.trim();
+            const tm = document.getElementById(`toMode_${q.id}`).value;
+            answers[q.id] = { fromLetter: fl, fromMode: fm, toLetter: tl, toMode: tm };
+          } else if (q.type === 'sections') {
+            const rows = document.querySelectorAll(`#sectionContainer_${q.id} .section-row`);
+            const secs = [];
+            rows.forEach(row => {
+              const inputs = row.querySelectorAll('input');
+              const select = row.querySelector('select');
+              const min = parseInt(inputs[0].value);
+              const sec = parseInt(inputs[1].value);
+              if (!isNaN(min) && !isNaN(sec) && select.value) {
+                secs.push({ min, sec, label: select.value });
+              }
+            });
+            answers[q.id] = secs;
+          } else if (q.type === 'chordProgression') {
+            answers[q.id] = {
+              chordNames: document.getElementById(`chordNames_${q.id}`).value,
+              romanNums: document.getElementById(`romanNums_${q.id}`).value
+            };
+          } else if (q.type === 'chordDetail') {
+            const arr = [];
+            for (let i=0; i<q.chordsData.length; i++) {
+              arr.push({
+                root: document.getElementById(`root_${q.id}_${i}`).value.trim(),
+                quality: document.getElementById(`quality_${q.id}_${i}`).value,
+                ext: document.getElementById(`ext_${q.id}_${i}`).value.trim()
+              });
             }
-          });
-          answers[q.id] = secs;
-        } else if (q.type === 'chordProgression') {
-          answers[q.id] = {
-            chordNames: document.getElementById(`chordNames_${q.id}`).value,
-            romanNums: document.getElementById(`romanNums_${q.id}`).value
-          };
-        } else if (q.type === 'chordDetail') {
-          const arr = [];
-          for (let i=0; i<q.chordsData.length; i++) {
-            arr.push({
-              root: document.getElementById(`root_${q.id}_${i}`).value.trim(),
-              quality: document.getElementById(`quality_${q.id}_${i}`).value,
-              ext: document.getElementById(`ext_${q.id}_${i}`).value.trim()
-            });
+            answers[q.id] = arr;
+          } else if (q.type === 'romanDetail') {
+            const arr = [];
+            for (let i=0; i<q.progression.length; i++) {
+              arr.push({
+                degree: document.getElementById(`deg_${q.id}_${i}`).value,
+                quality: document.getElementById(`qual_${q.id}_${i}`).value,
+                ext: document.getElementById(`extR_${q.id}_${i}`).value.trim()
+              });
+            }
+            answers[q.id] = arr;
           }
-          answers[q.id] = arr;
-        } else if (q.type === 'romanDetail') {
-          const arr = [];
-          for (let i=0; i<q.progression.length; i++) {
-            arr.push({
-              degree: document.getElementById(`deg_${q.id}_${i}`).value,
-              quality: document.getElementById(`qual_${q.id}_${i}`).value,
-              ext: document.getElementById(`extR_${q.id}_${i}`).value.trim()
-            });
-          }
-          answers[q.id] = arr;
+        } catch(e) {
+          console.error(`收集答案出错 (题目${q.id}):`, e);
+          answers[q.id] = null;
         }
       });
       return answers;
@@ -418,129 +436,135 @@
       const questions = getQuestionsByLevel(level);
       let total = 0;
       questions.forEach(q => {
-        const userAns = answers[q.id];
-        if (userAns === '__ABANDONED__') {
-          // 放弃得0分，直接跳过
-          return;
-        }
-        let score = 0;
-        if (q.type === 'radio') {
-          if (userAns === q.ans) score = 10;
-        } else if (q.type === 'bool') {
-          if (userAns === q.ans) score = 10;
-        } else if (q.type === 'timeInput') {
-          if (userAns) {
-            const ut = userAns.min*60 + userAns.sec;
-            const ct = q.ans.min*60 + q.ans.sec;
-            if (Math.abs(ut - ct) <= 2) score = q.score;
-          }
-        } else if (q.type === 'secInput') {
-          if (userAns !== null && Math.abs(userAns - q.ans) <= 2) score = q.score;
-        } else if (q.type === 'multi') {
-          if (q.scoring === 'custom') {
-            score = q.customScore(userAns);
-          } else if (q.scoring === 'allCorrect') {
-            const set1 = new Set(userAns);
-            const set2 = new Set(q.ans);
-            score = (set1.size === set2.size && [...set1].every(v => set2.has(v))) ? q.score : 0;
-          } else if (q.scoring === 'positive') {
-            let correct = 0;
-            const answerSet = new Set(q.ans);
-            const userSet = new Set(userAns);
-            let hasWrong = false;
-            userAns.forEach(v => { if (!answerSet.has(v)) hasWrong = true; });
-            if (hasWrong) score = 0;
-            else {
-              correct = userAns.filter(v => answerSet.has(v)).length;
-              score = correct * 5;
+        try {
+          const userAns = answers[q.id];
+          if (userAns === '__ABANDONED__') return;
+          let score = 0;
+          if (q.type === 'radio') {
+            if (userAns === q.ans) score = 10;
+          } else if (q.type === 'bool') {
+            if (userAns === q.ans) score = 10;
+          } else if (q.type === 'timeInput') {
+            if (userAns) {
+              const ut = userAns.min*60 + userAns.sec;
+              const ct = q.ans.min*60 + q.ans.sec;
+              if (Math.abs(ut - ct) <= 2) score = q.score;
             }
-          } else {
-            const set1 = new Set(userAns);
-            const set2 = new Set(q.ans);
-            score = (set1.size === set2.size && [...set1].every(v => set2.has(v))) ? q.score : 0;
-          }
-        } else if (q.type === 'keyInput') {
-          if (userAns && normalizePitch(userAns.letter) === normalizePitch(q.ans.letter) && userAns.mode === q.ans.mode) score = q.score;
-        } else if (q.type === 'keyChangeInput') {
-          if (userAns && 
-              normalizePitch(userAns.fromLetter) === normalizePitch(q.ans.fromLetter) &&
-              userAns.fromMode === q.ans.fromMode &&
-              normalizePitch(userAns.toLetter) === normalizePitch(q.ans.toLetter) &&
-              userAns.toMode === q.ans.toMode) score = q.score;
-        } else if (q.type === 'sections') {
-          if (userAns && userAns.length) {
-            let points = 0;
-            const tol = 2;
-            q.ans.forEach((correct, idx) => {
-              const ua = userAns[idx];
-              if (!ua) return;
-              const ut = ua.min*60 + ua.sec;
-              const ct = correct.min*60 + correct.sec;
-              if (Math.abs(ut - ct) <= tol && ua.label === correct.label) {
-                points += (q.score / q.ans.length);
+          } else if (q.type === 'secInput') {
+            if (userAns !== null && Math.abs(userAns - q.ans) <= 2) score = q.score;
+          } else if (q.type === 'multi') {
+            if (q.scoring === 'custom') {
+              score = q.customScore(userAns);
+            } else if (q.scoring === 'allCorrect') {
+              const set1 = new Set(userAns);
+              const set2 = new Set(q.ans);
+              score = (set1.size === set2.size && [...set1].every(v => set2.has(v))) ? q.score : 0;
+            } else if (q.scoring === 'positive') {
+              let correct = 0;
+              const answerSet = new Set(q.ans);
+              const userSet = new Set(userAns);
+              let hasWrong = false;
+              userAns.forEach(v => { if (!answerSet.has(v)) hasWrong = true; });
+              if (hasWrong) score = 0;
+              else {
+                correct = userAns.filter(v => answerSet.has(v)).length;
+                score = correct * 5;
               }
-            });
-            score = Math.round(points);
-          }
-        } else if (q.type === 'chordProgression') {
-          if (userAns) {
-            const nameCorrect = userAns.chordNames.replace(/\s/g,'') === q.chords.map(c=>c.name).join(',');
-            const romanCorrect = userAns.romanNums.replace(/\s/g,'') === q.chords.map(c=>c.roman).join(',');
-            if (nameCorrect && romanCorrect) score = 5;
-            else if (nameCorrect || romanCorrect) score = 2.5;
-          }
-        } else if (q.type === 'chordDetail') {
-          if (userAns) {
-            let correct = 0;
-            for (let i=0; i<q.chordsData.length; i++) {
-              const c = q.chordsData[i];
-              const u = userAns[i];
-              if (u && normalizePitch(u.root) === normalizePitch(c.root) && u.quality === c.quality && u.ext === c.ext) correct++;
+            } else {
+              const set1 = new Set(userAns);
+              const set2 = new Set(q.ans);
+              score = (set1.size === set2.size && [...set1].every(v => set2.has(v))) ? q.score : 0;
             }
-            score = correct * 4;
-          }
-        } else if (q.type === 'romanDetail') {
-          if (userAns) {
-            let correct = 0;
-            for (let i=0; i<q.progression.length; i++) {
-              const p = q.progression[i];
-              const u = userAns[i];
-              if (u && u.degree === p.degree && u.quality === p.quality && u.ext === p.ext) correct++;
+          } else if (q.type === 'keyInput') {
+            if (userAns && normalizePitch(userAns.letter) === normalizePitch(q.ans.letter) && userAns.mode === q.ans.mode) score = q.score;
+          } else if (q.type === 'keyChangeInput') {
+            if (userAns && 
+                normalizePitch(userAns.fromLetter) === normalizePitch(q.ans.fromLetter) &&
+                userAns.fromMode === q.ans.fromMode &&
+                normalizePitch(userAns.toLetter) === normalizePitch(q.ans.toLetter) &&
+                userAns.toMode === q.ans.toMode) score = q.score;
+          } else if (q.type === 'sections') {
+            if (userAns && userAns.length) {
+              let points = 0;
+              const tol = 2;
+              q.ans.forEach((correct, idx) => {
+                const ua = userAns[idx];
+                if (!ua) return;
+                const ut = ua.min*60 + ua.sec;
+                const ct = correct.min*60 + correct.sec;
+                if (Math.abs(ut - ct) <= tol && ua.label === correct.label) {
+                  points += (q.score / q.ans.length);
+                }
+              });
+              score = Math.round(points);
             }
-            score = correct * 2;
+          } else if (q.type === 'chordProgression') {
+            if (userAns) {
+              const nameCorrect = userAns.chordNames.replace(/\s/g,'') === q.chords.map(c=>c.name).join(',');
+              const romanCorrect = userAns.romanNums.replace(/\s/g,'') === q.chords.map(c=>c.roman).join(',');
+              if (nameCorrect && romanCorrect) score = 5;
+              else if (nameCorrect || romanCorrect) score = 2.5;
+            }
+          } else if (q.type === 'chordDetail') {
+            if (userAns) {
+              let correct = 0;
+              for (let i=0; i<q.chordsData.length; i++) {
+                const c = q.chordsData[i];
+                const u = userAns[i];
+                if (u && normalizePitch(u.root) === normalizePitch(c.root) && u.quality === c.quality && u.ext === c.ext) correct++;
+              }
+              score = correct * 4;
+            }
+          } else if (q.type === 'romanDetail') {
+            if (userAns) {
+              let correct = 0;
+              for (let i=0; i<q.progression.length; i++) {
+                const p = q.progression[i];
+                const u = userAns[i];
+                if (u && u.degree === p.degree && u.quality === p.quality && u.ext === p.ext) correct++;
+              }
+              score = correct * 2;
+            }
           }
+          total += score;
+        } catch(e) {
+          console.error(`评分出错 (题目${q.id}):`, e);
         }
-        total += score;
       });
       return total;
     }
 
     function submitLevel(level) {
-      const answers = collectAnswers(level);
-      if (!state.answers) state.answers = {};
-      state.answers[level] = answers;
+      try {
+        const answers = collectAnswers(level);
+        if (!state.answers) state.answers = {};
+        state.answers[level] = answers;
 
-      const score = scoreLevel(level, answers);
-      state.scores[level-1] = score;
-      const passScore = passScores[level-1];
-      const passed = score >= passScore;
+        const score = scoreLevel(level, answers);
+        state.scores[level-1] = score;
+        const passScore = passScores[level-1];
+        const passed = score >= passScore;
 
-      let resultHtml = `<div class="result"><h2>第${level}关结果</h2>`;
-      resultHtml += `<p>你的得分：<strong>${score}</strong> / 100 （晋级线 ${passScore} 分）</p>`;
-      if (passed) {
-        resultHtml += `<p style="color:green">🎉 恭喜你通过本关！</p>`;
-        if (level < 5) {
-          resultHtml += `<button class="btn" onclick="goToNextLevel(${level})">进入第${level+1}关</button>`;
+        let resultHtml = `<div class="result"><h2>第${level}关结果</h2>`;
+        resultHtml += `<p>你的得分：<strong>${score}</strong> / 100 （晋级线 ${passScore} 分）</p>`;
+        if (passed) {
+          resultHtml += `<p style="color:green">🎉 恭喜你通过本关！</p>`;
+          if (level < 5) {
+            resultHtml += `<button class="btn" onclick="goToNextLevel(${level})">进入第${level+1}关</button>`;
+          } else {
+            finishTest(true);
+            return;
+          }
         } else {
-          finishTest(true);
+          resultHtml += `<p style="color:red">很遗憾，未达到晋级线。</p>`;
+          finishTest(false);
           return;
         }
-      } else {
-        resultHtml += `<p style="color:red">很遗憾，未达到晋级线。</p>`;
-        finishTest(false);
-        return;
+        app.innerHTML = resultHtml;
+      } catch(e) {
+        console.error('提交关卡出错:', e);
+        alert('提交时发生错误，请刷新页面后重新测试。');
       }
-      app.innerHTML = resultHtml;
     }
 
     function goToNextLevel(currentLevel) {
